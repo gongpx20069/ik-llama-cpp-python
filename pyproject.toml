@@ -1,0 +1,33 @@
+[build-system]
+requires = ["scikit-build-core>=0.8"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ik-llama-cpp-python"
+version = "0.1.0"
+description = "Python bindings for ik_llama.cpp — high-performance llama.cpp fork"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/peixiangong/ik-llama-cpp-python"
+Repository = "https://github.com/peixiangong/ik-llama-cpp-python"
+
+[tool.scikit-build]
+wheel.packages = ["ik_llama_cpp"]
+cmake.build-type = "Release"
+cmake.args = ["-DGGML_NATIVE=ON", "-DBUILD_SHARED_LIBS=ON"]
+
+[tool.scikit-build.cmake.define]
+LLAMA_BUILD_TESTS = "OFF"
+LLAMA_BUILD_EXAMPLES = "OFF"
+LLAMA_BUILD_SERVER = "OFF"
