@@ -115,7 +115,19 @@ def quantize(
     cmd.extend([str(input_path), str(output_path), quant_type])
 
     print(f"Quantizing: {input_path.name} -> {output_path.name} ({quant_type})")
-    subprocess.run(cmd, check=True)
+    result = subprocess.run(cmd)
+
+    # If imatrix failed (format mismatch), retry without it
+    if result.returncode != 0 and imatrix_path is not None:
+        print(f"\nWarning: quantization with imatrix failed (likely format mismatch).")
+        print(f"Retrying without imatrix...")
+        # Clean up partial output
+        if output_path.is_file():
+            output_path.unlink()
+        cmd_no_imat = [str(quantize_bin), str(input_path), str(output_path), quant_type]
+        subprocess.run(cmd_no_imat, check=True)
+    elif result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd)
 
     if not output_path.is_file():
         raise RuntimeError(f"Quantization completed but output not found: {output_path}")

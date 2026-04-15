@@ -275,6 +275,10 @@ def llama_model_load_from_file(path: bytes, params: llama_model_params) -> Optio
 def llama_free_model(model: int) -> None: ...
 
 
+@_cfunc("llama_model_desc", [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t], ctypes.c_int32)
+def llama_model_desc(model: int, buf: Any, buf_size: int) -> int: ...
+
+
 # -- Context init / free --
 
 @_cfunc("llama_init_from_model", [ctypes.c_void_p, llama_context_params], ctypes.c_void_p)

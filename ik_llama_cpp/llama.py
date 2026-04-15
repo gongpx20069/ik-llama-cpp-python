@@ -2,16 +2,33 @@
 
 from __future__ import annotations
 
+import logging
 import re
+import struct
 from typing import Any
 
 from . import _ctypes_api as C
-from ._internals import IkModel, IkContext, make_batch, make_batch_single
+from ._internals import IkModel, IkContext, make_batch_range, make_batch_single
+
+logger = logging.getLogger(__name__)
 
 # Special token markers that may leak into generated text
 _SPECIAL_TOKEN_RE = re.compile(
     r"<start_of_turn>|<end_of_turn>|<turn\|>|<\|tool_response\|?>|</s>"
 )
+
+
+def _cpu_has_avx_vnni() -> bool:
+    """Detect AVX-VNNI support via CPUID (leaf 7, sub-leaf 1, EAX bit 4)."""
+    try:
+        import cpuinfo
+        info = cpuinfo.get_cpu_info()
+        flags = info.get("flags", [])
+        return "avx_vnni" in flags or "avxvnni" in flags
+    except ImportError:
+        pass
+    # Fallback: not detectable, assume absent
+    return False
 
 
 class IkLlama:
@@ -47,6 +64,19 @@ class IkLlama:
             model_path, use_mmap=use_mmap, use_mlock=use_mlock,
             n_gpu_layers=n_gpu_layers,
         )
+
+        # Detect IQ4_KT + non-VNNI CPU — flash_attn triggers
+        # GGML_ASSERT(S > 0) in iqk flash attention templates
+        self._has_vnni = _cpu_has_avx_vnni()
+        is_iq4kt = "IQ4_KT" in self._model.desc.upper()
+        if flash_attn and is_iq4kt and not self._has_vnni:
+            logger.warning(
+                "IQ4_KT model on non-AVX-VNNI CPU — disabling flash_attn "
+                "to avoid ik_llama.cpp flash attention assert failures. "
+                "For full IQ4_KT performance, use a Zen 4+ or Alder Lake+ CPU."
+            )
+            flash_attn = False
+
         self._context = IkContext(
             self._model, n_ctx=n_ctx, n_threads=n_threads,
             flash_attn=flash_attn,
@@ -77,12 +107,21 @@ class IkLlama:
         """Generate tokens from a prompt token list. Returns generated token ids."""
         self._context.perf_reset()
 
-        # Prefill
-        batch = make_batch(tokens, logits_last=True)
-        ret = self._context.decode(batch)
-        C.llama_batch_free(batch)
-        if ret != 0:
-            raise RuntimeError(f"llama_decode failed during prefill: {ret}")
+        n_ubatch = self._context._n_ubatch
+        n_tokens = len(tokens)
+
+        # Prefill in n_ubatch-sized chunks to avoid compute buffer overflow
+        for i in range(0, n_tokens, n_ubatch):
+            chunk = tokens[i : i + n_ubatch]
+            is_last_chunk = (i + n_ubatch >= n_tokens)
+            batch = make_batch_range(chunk, pos_start=i, logits_last=is_last_chunk)
+            ret = self._context.decode(batch)
+            C.llama_batch_free(batch)
+            if ret != 0:
+                raise RuntimeError(
+                    f"llama_decode failed during prefill (chunk {i}..{i+len(chunk)}, "
+                    f"n_ubatch={n_ubatch}): {ret}"
+                )
 
         generated: list[int] = []
         pos = len(tokens)

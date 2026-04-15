@@ -35,6 +35,13 @@ class IkModel:
     def vocab(self):
         return self._vocab
 
+    @property
+    def desc(self) -> str:
+        """Model description string (e.g. 'gemma4 2B IQ4_KT - 4.0 bpw')."""
+        buf = ctypes.create_string_buffer(256)
+        C.llama_model_desc(self._model, buf, 256)
+        return buf.value.decode("utf-8", errors="replace")
+
     def tokenize(self, text: str, *, add_bos: bool = True, special: bool = False) -> list[int]:
         text_bytes = text.encode("utf-8")
         # First call to get required size (ik_llama.cpp takes model*, not vocab*)
@@ -85,6 +92,7 @@ class IkContext:
         if not self._ctx:
             raise RuntimeError("Failed to create context")
         self._model = model
+        self._n_ubatch = params.n_ubatch or 512
 
     @property
     def ctx(self):
@@ -151,16 +159,21 @@ class IkContext:
 
 
 def make_batch(tokens: list[int], *, logits_last: bool = True) -> C.llama_batch:
-    """Create a llama_batch from a token list."""
+    """Create a llama_batch from a token list (positions start at 0)."""
+    return make_batch_range(tokens, pos_start=0, logits_last=logits_last)
+
+
+def make_batch_range(tokens: list[int], *, pos_start: int = 0,
+                     logits_last: bool = True) -> C.llama_batch:
+    """Create a llama_batch from a token list with explicit position offset."""
     n = len(tokens)
     batch = C.llama_batch_init(n, 0, 1)
     batch.n_tokens = n
 
     for i, tok in enumerate(tokens):
         batch.token[i] = tok
-        batch.pos[i] = i
+        batch.pos[i] = pos_start + i
         batch.n_seq_id[i] = 1
-        # llama_batch_init already allocated seq_id[i] — write into it directly
         batch.seq_id[i][0] = 0
         batch.logits[i] = 1 if (logits_last and i == n - 1) else 0
 
