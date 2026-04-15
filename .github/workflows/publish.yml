@@ -119,6 +119,7 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=4
             CXXFLAGS="-include cstdint -mcmodel=medium"
             CFLAGS="-mcmodel=medium"
+            CUDAFLAGS="-Xcompiler -mcmodel=medium"
           CIBW_BEFORE_BUILD: >-
             sed -i 's/name = "ik-llama-cpp-python"/name = "ik-llama-cpp-python-cuda"/' pyproject.toml
           CIBW_CONFIG_SETTINGS: >-
