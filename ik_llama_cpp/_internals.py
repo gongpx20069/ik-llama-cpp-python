@@ -37,15 +37,15 @@ class IkModel:
 
     def tokenize(self, text: str, *, add_bos: bool = True, special: bool = False) -> list[int]:
         text_bytes = text.encode("utf-8")
-        # First call to get required size
+        # First call to get required size (ik_llama.cpp takes model*, not vocab*)
         n = C.llama_tokenize(
-            self._vocab, text_bytes, len(text_bytes),
+            self._model, text_bytes, len(text_bytes),
             None, 0, add_bos, special,
         )
         n = abs(n)
         buf = (C.llama_token * n)()
         n_actual = C.llama_tokenize(
-            self._vocab, text_bytes, len(text_bytes),
+            self._model, text_bytes, len(text_bytes),
             buf, n, add_bos, special,
         )
         return list(buf[:n_actual])
@@ -54,7 +54,7 @@ class IkModel:
         pieces = []
         buf = ctypes.create_string_buffer(256)
         for tok in tokens:
-            n = C.llama_token_to_piece(self._vocab, tok, buf, 256, 0, special)
+            n = C.llama_token_to_piece(self._model, tok, buf, 256, 0, special)
             if n > 0:
                 pieces.append(buf.value[:n].decode("utf-8", errors="replace"))
         return "".join(pieces)
