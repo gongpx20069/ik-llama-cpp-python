@@ -17,6 +17,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.optional-dependencies]
+quantize = ["huggingface_hub>=0.20"]
+
+[project.scripts]
+ik-llama-quantize = "ik_llama_cpp.quantize:main"
+
 [project.urls]
 Homepage = "https://github.com/gongpx20069/ik-llama-cpp-python"
 Repository = "https://github.com/gongpx20069/ik-llama-cpp-python"

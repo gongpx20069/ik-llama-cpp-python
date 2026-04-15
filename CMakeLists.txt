@@ -8,9 +8,18 @@ set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(vendor/ik_llama.cpp)
 
+# Build llama-quantize (for IQ4_KT quantization support)
+add_subdirectory(vendor/ik_llama.cpp/examples/quantize)
+
 # Install shared libraries into the Python package
 install(
     TARGETS llama ggml
     LIBRARY DESTINATION ik_llama_cpp/lib
     RUNTIME DESTINATION ik_llama_cpp/lib
+)
+
+# Install llama-quantize binary into the Python package
+install(
+    TARGETS llama-quantize
+    RUNTIME DESTINATION ik_llama_cpp/bin
 )

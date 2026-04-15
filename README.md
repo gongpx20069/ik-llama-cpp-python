@@ -113,6 +113,62 @@ response = llm.create_chat_completion(
 )
 ```
 
+## Quantization (IQ4_KT)
+
+ik_llama.cpp provides novel Trellis quantization types (`IQ1_KT`–`IQ4_KT`) that are not available in upstream llama.cpp. This package includes `llama-quantize` and a Python API to create these quants from standard GGUF files.
+
+### Install with quantization support
+
+```bash
+pip install ik-llama-cpp-python[quantize]
+```
+
+### CLI: Download from HuggingFace and quantize
+
+```bash
+# Download bf16 source + imatrix, quantize to IQ4_KT in one step
+ik-llama-quantize from-hf bartowski/google_gemma-4-E2B-it-GGUF
+
+# Specify a different quant type
+ik-llama-quantize from-hf bartowski/google_gemma-4-E2B-it-GGUF --type IQ3_KT
+
+# Custom output directory
+ik-llama-quantize from-hf bartowski/google_gemma-4-E2B-it-GGUF --output-dir models/
+```
+
+### CLI: Quantize a local file
+
+```bash
+# With imatrix (recommended for IQ quants)
+ik-llama-quantize quantize model-bf16.gguf model-IQ4_KT.gguf IQ4_KT \
+    --imatrix model-imatrix.gguf
+
+# Without imatrix
+ik-llama-quantize quantize model-bf16.gguf model-IQ4_KT.gguf IQ4_KT
+
+# Shorthand (without subcommand)
+ik-llama-quantize model-bf16.gguf model-IQ4_KT.gguf IQ4_KT
+```
+
+### Python API
+
+```python
+from ik_llama_cpp import quantize, quantize_from_hf
+
+# One-step: download from HuggingFace and quantize
+path = quantize_from_hf("bartowski/google_gemma-4-E2B-it-GGUF", quant_type="IQ4_KT")
+
+# Or quantize a local file
+path = quantize("model-bf16.gguf", "model-IQ4_KT.gguf", "IQ4_KT",
+                imatrix_path="model-imatrix.gguf")
+```
+
+### Check if llama-quantize is available
+
+```bash
+ik-llama-quantize check
+```
+
 ## Constructor Parameters
 
 | Parameter | Type | Default | Description |
@@ -157,12 +213,14 @@ response = llm.create_chat_completion(
 
 ```
 ik_llama_cpp/
-  __init__.py        # Public API: IkLlama
+  __init__.py        # Public API: IkLlama, quantize, quantize_from_hf
   _lib_loader.py     # Finds and loads the shared library (.dll/.so/.dylib)
   _ctypes_api.py     # Low-level ctypes bindings to llama.h C API
-  _internals.py      # RAII wrappers: IkModel, IkContext, IkSampler
+  _internals.py      # RAII wrappers: IkModel, IkContext
   llama.py           # High-level IkLlama class
+  quantize.py        # Quantization CLI and API (wraps llama-quantize)
   lib/               # Compiled shared libraries (installed by CMake)
+  bin/               # llama-quantize binary (installed by CMake)
 ```
 
 ## License
