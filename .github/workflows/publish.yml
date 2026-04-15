@@ -29,7 +29,7 @@ jobs:
             arch: aarch64
             runner: ubuntu-24.04-arm
             cibw_archs: aarch64
-            cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_IQK_MUL_MAT=OFF"
+            cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON"
             cxxflags: "-include cstdint -march=armv8.2-a+dotprod+fp16"
             cflags: "-march=armv8.2-a+dotprod+fp16"
           - os: macos
