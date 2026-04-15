@@ -172,7 +172,7 @@ jobs:
     needs: [build-cuda-wheels]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    environment: pypi
+    environment: pypi-cuda
     permissions:
       id-token: write
 
