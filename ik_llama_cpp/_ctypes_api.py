@@ -1,4 +1,11 @@
-"""Low-level ctypes bindings for the ik_llama.cpp C API (llama.h)."""
+"""Low-level ctypes bindings for the ik_llama.cpp C API (llama.h).
+
+NOTE: ik_llama.cpp uses an older-style API compared to upstream llama.cpp:
+  - Sampling is direct (llama_sample_*) instead of sampler-chain objects
+  - Model free is llama_free_model (not llama_model_free)
+  - Timings use llama_get_timings / llama_print_timings / llama_reset_timings
+  - Struct layouts differ significantly
+"""
 
 from __future__ import annotations
 
@@ -38,7 +45,6 @@ def _cfunc(name: str, argtypes: List[Any], restype: Any):
 llama_model_p = ctypes.c_void_p
 llama_context_p = ctypes.c_void_p
 llama_vocab_p = ctypes.c_void_p
-llama_sampler_p = ctypes.POINTER(ctypes.c_void_p)  # opaque
 
 llama_token = ctypes.c_int32
 llama_token_p = ctypes.POINTER(llama_token)
@@ -55,7 +61,7 @@ ggml_backend_sched_eval_callback = ctypes.CFUNCTYPE(
 ggml_abort_callback = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p)
 
 # ---------------------------------------------------------------------------
-# Structures
+# Structures (matching ik_llama.cpp fork layouts)
 # ---------------------------------------------------------------------------
 
 
@@ -77,46 +83,68 @@ class llama_model_kv_override(ctypes.Structure):
 
 
 class llama_model_params(ctypes.Structure):
+    """ik_llama.cpp llama_model_params — differs from upstream."""
     _fields_ = [
-        ("devices", ctypes.c_void_p),
-        ("tensor_buft_overrides", ctypes.c_void_p),
+        ("devices", ctypes.c_char_p),
         ("n_gpu_layers", ctypes.c_int32),
+        ("mla", ctypes.c_int32),
         ("split_mode", ctypes.c_int),
         ("main_gpu", ctypes.c_int32),
+        ("max_gpu", ctypes.c_int32),
+        ("ncmoe", ctypes.c_int32),
+        ("type_k", ctypes.c_int),
+        ("type_v", ctypes.c_int),
+        ("max_ctx_size", ctypes.c_uint32),
+        ("n_seq_max", ctypes.c_int32),
+        ("n_ubatch", ctypes.c_int32),
+        ("amb", ctypes.c_int32),
+        ("fit_margin", ctypes.c_int32),
+        ("fit", ctypes.c_bool),
+        ("worst_graph_tokens", ctypes.c_int32),
+        ("type_k_first", ctypes.c_int),
+        ("type_k_last", ctypes.c_int),
+        ("type_v_first", ctypes.c_int),
+        ("type_v_last", ctypes.c_int),
+        ("n_k_first", ctypes.c_int32),
+        ("n_k_last", ctypes.c_int32),
+        ("n_v_first", ctypes.c_int32),
+        ("n_v_last", ctypes.c_int32),
         ("tensor_split", ctypes.POINTER(ctypes.c_float)),
+        ("rpc_servers", ctypes.c_char_p),
         ("progress_callback", llama_progress_callback),
         ("progress_callback_user_data", ctypes.c_void_p),
         ("kv_overrides", ctypes.POINTER(llama_model_kv_override)),
+        ("tensor_buft_overrides", ctypes.c_void_p),
         ("vocab_only", ctypes.c_bool),
         ("use_mmap", ctypes.c_bool),
-        ("use_direct_io", ctypes.c_bool),
         ("use_mlock", ctypes.c_bool),
         ("check_tensors", ctypes.c_bool),
-        ("use_extra_bufts", ctypes.c_bool),
-        ("no_host", ctypes.c_bool),
-        ("no_alloc", ctypes.c_bool),
-    ]
-
-
-class llama_sampler_seq_config(ctypes.Structure):
-    _fields_ = [
-        ("seq_id", llama_seq_id),
-        ("sampler", ctypes.c_void_p),
+        ("repack_tensors", ctypes.c_bool),
+        ("use_thp", ctypes.c_bool),
+        ("validate_quants", ctypes.c_bool),
+        ("merge_qkv", ctypes.c_bool),
+        ("merge_up_gate_exps", ctypes.c_bool),
+        ("mtp", ctypes.c_bool),
+        ("dry_run", ctypes.c_bool),
+        ("flash_attn", ctypes.c_bool),
     ]
 
 
 class llama_context_params(ctypes.Structure):
+    """ik_llama.cpp llama_context_params — differs from upstream."""
     _fields_ = [
+        ("seed", ctypes.c_uint32),
         ("n_ctx", ctypes.c_uint32),
         ("n_batch", ctypes.c_uint32),
         ("n_ubatch", ctypes.c_uint32),
         ("n_seq_max", ctypes.c_uint32),
-        ("n_threads", ctypes.c_int32),
-        ("n_threads_batch", ctypes.c_int32),
+        ("n_threads", ctypes.c_uint32),
+        ("n_threads_batch", ctypes.c_uint32),
+        ("max_extra_alloc", ctypes.c_int32),
+        ("worst_case_tokens", ctypes.c_int32),
         ("rope_scaling_type", ctypes.c_int),
         ("pooling_type", ctypes.c_int),
         ("attention_type", ctypes.c_int),
-        ("flash_attn_type", ctypes.c_int),
         ("rope_freq_base", ctypes.c_float),
         ("rope_freq_scale", ctypes.c_float),
         ("yarn_ext_factor", ctypes.c_float),
@@ -129,16 +157,40 @@ class llama_context_params(ctypes.Structure):
         ("cb_eval_user_data", ctypes.c_void_p),
         ("type_k", ctypes.c_int),
         ("type_v", ctypes.c_int),
-        ("abort_callback", ggml_abort_callback),
-        ("abort_callback_data", ctypes.c_void_p),
+        ("type_reduce", ctypes.c_int),
+        ("type_k_first", ctypes.c_int),
+        ("type_k_last", ctypes.c_int),
+        ("type_v_first", ctypes.c_int),
+        ("type_v_last", ctypes.c_int),
+        ("n_k_first", ctypes.c_int32),
+        ("n_k_last", ctypes.c_int32),
+        ("n_v_first", ctypes.c_int32),
+        ("n_v_last", ctypes.c_int32),
+        ("logits_all", ctypes.c_bool),
         ("embeddings", ctypes.c_bool),
         ("offload_kqv", ctypes.c_bool),
-        ("no_perf", ctypes.c_bool),
-        ("op_offload", ctypes.c_bool),
-        ("swa_full", ctypes.c_bool),
-        ("kv_unified", ctypes.c_bool),
-        ("samplers", ctypes.POINTER(llama_sampler_seq_config)),
-        ("n_samplers", ctypes.c_size_t),
+        ("flash_attn", ctypes.c_bool),
+        ("mla_attn", ctypes.c_int),
+        ("attn_max_batch", ctypes.c_int),
+        ("fused_moe_up_gate", ctypes.c_bool),
+        ("grouped_expert_routing", ctypes.c_bool),
+        ("fused_up_gate", ctypes.c_bool),
+        ("fused_mmad", ctypes.c_bool),
+        ("rope_cache", ctypes.c_bool),
+        ("graph_reuse", ctypes.c_bool),
+        ("min_experts", ctypes.c_int),
+        ("thresh_experts", ctypes.c_float),
+        ("only_active_experts", ctypes.c_bool),
+        ("k_cache_hadamard", ctypes.c_bool),
+        ("v_cache_hadamard", ctypes.c_bool),
+        ("split_mode_graph_scheduling", ctypes.c_bool),
+        ("scheduler_async", ctypes.c_bool),
+        ("mtp", ctypes.c_bool),
+        ("mtp_op_type", ctypes.c_int),
+        ("abort_callback", ggml_abort_callback),
+        ("abort_callback_data", ctypes.c_void_p),
+        ("offload_policy", ctypes.c_void_p),
+        ("cuda_params", ctypes.c_void_p),
     ]
 
 
@@ -151,6 +203,9 @@ class llama_batch(ctypes.Structure):
         ("n_seq_id", ctypes.POINTER(ctypes.c_int32)),
         ("seq_id", ctypes.POINTER(ctypes.POINTER(llama_seq_id))),
         ("logits", ctypes.POINTER(ctypes.c_int8)),
+        ("all_pos_0", llama_pos),
+        ("all_pos_1", llama_pos),
+        ("all_seq_id", llama_seq_id),
     ]
 
 
@@ -171,21 +226,18 @@ class llama_token_data_array(ctypes.Structure):
     ]
 
 
-class llama_sampler_chain_params(ctypes.Structure):
-    _fields_ = [
-        ("no_perf", ctypes.c_bool),
-    ]
-
-
-class llama_perf_context_data(ctypes.Structure):
+class llama_timings(ctypes.Structure):
+    """ik_llama.cpp uses llama_timings instead of llama_perf_context_data."""
     _fields_ = [
         ("t_start_ms", ctypes.c_double),
+        ("t_end_ms", ctypes.c_double),
         ("t_load_ms", ctypes.c_double),
+        ("t_sample_ms", ctypes.c_double),
         ("t_p_eval_ms", ctypes.c_double),
         ("t_eval_ms", ctypes.c_double),
+        ("n_sample", ctypes.c_int32),
         ("n_p_eval", ctypes.c_int32),
         ("n_eval", ctypes.c_int32),
-        ("n_reused", ctypes.c_int32),
     ]
 
 
@@ -213,18 +265,14 @@ def llama_model_default_params() -> llama_model_params: ...
 def llama_context_default_params() -> llama_context_params: ...
 
 
-@_cfunc("llama_sampler_chain_default_params", [], llama_sampler_chain_params)
-def llama_sampler_chain_default_params() -> llama_sampler_chain_params: ...
-
-
 # -- Model load / free --
 
 @_cfunc("llama_model_load_from_file", [ctypes.c_char_p, llama_model_params], ctypes.c_void_p)
 def llama_model_load_from_file(path: bytes, params: llama_model_params) -> Optional[int]: ...
 
 
-@_cfunc("llama_model_free", [ctypes.c_void_p], None)
-def llama_model_free(model: int) -> None: ...
+@_cfunc("llama_free_model", [ctypes.c_void_p], None)
+def llama_free_model(model: int) -> None: ...
 
 
 # -- Context init / free --
@@ -296,49 +344,65 @@ def llama_decode(ctx: int, batch: llama_batch) -> int: ...
 def llama_get_logits_ith(ctx: int, i: int) -> Any: ...
 
 
-# -- Sampler --
+# -- Direct sampling (ik_llama.cpp style — no sampler chain) --
 
-@_cfunc("llama_sampler_chain_init", [llama_sampler_chain_params], ctypes.c_void_p)
-def llama_sampler_chain_init(params: llama_sampler_chain_params) -> int: ...
-
-
-@_cfunc("llama_sampler_chain_add", [ctypes.c_void_p, ctypes.c_void_p], None)
-def llama_sampler_chain_add(chain: int, smpl: int) -> None: ...
-
-
-@_cfunc("llama_sampler_sample", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32], llama_token)
-def llama_sampler_sample(smpl: int, ctx: int, idx: int) -> int: ...
+@_cfunc(
+    "llama_sample_top_k",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array), ctypes.c_int32, ctypes.c_size_t],
+    None,
+)
+def llama_sample_top_k(ctx: int, candidates: Any, k: int, min_keep: int) -> None: ...
 
 
-@_cfunc("llama_sampler_free", [ctypes.c_void_p], None)
-def llama_sampler_free(smpl: int) -> None: ...
+@_cfunc(
+    "llama_sample_top_p",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array), ctypes.c_float, ctypes.c_size_t],
+    None,
+)
+def llama_sample_top_p(ctx: int, candidates: Any, p: float, min_keep: int) -> None: ...
 
 
-@_cfunc("llama_sampler_init_greedy", [], ctypes.c_void_p)
-def llama_sampler_init_greedy() -> int: ...
+@_cfunc(
+    "llama_sample_temp",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array), ctypes.c_float],
+    None,
+)
+def llama_sample_temp(ctx: int, candidates: Any, temp: float) -> None: ...
 
 
-@_cfunc("llama_sampler_init_temp", [ctypes.c_float], ctypes.c_void_p)
-def llama_sampler_init_temp(t: float) -> int: ...
+@_cfunc(
+    "llama_sample_softmax",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array)],
+    None,
+)
+def llama_sample_softmax(ctx: int, candidates: Any) -> None: ...
 
 
-@_cfunc("llama_sampler_init_top_k", [ctypes.c_int32], ctypes.c_void_p)
-def llama_sampler_init_top_k(k: int) -> int: ...
+@_cfunc(
+    "llama_sample_token_greedy",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array)],
+    llama_token,
+)
+def llama_sample_token_greedy(ctx: int, candidates: Any) -> int: ...
 
 
-@_cfunc("llama_sampler_init_top_p", [ctypes.c_float, ctypes.c_size_t], ctypes.c_void_p)
-def llama_sampler_init_top_p(p: float, min_keep: int) -> int: ...
+@_cfunc(
+    "llama_sample_token",
+    [ctypes.c_void_p, ctypes.POINTER(llama_token_data_array)],
+    llama_token,
+)
+def llama_sample_token(ctx: int, candidates: Any) -> int: ...
 
 
-# -- Perf --
+# -- Timings (ik_llama.cpp style) --
 
-@_cfunc("llama_perf_context", [ctypes.c_void_p], llama_perf_context_data)
-def llama_perf_context(ctx: int) -> llama_perf_context_data: ...
-
-
-@_cfunc("llama_perf_context_print", [ctypes.c_void_p], None)
-def llama_perf_context_print(ctx: int) -> None: ...
+@_cfunc("llama_get_timings", [ctypes.c_void_p], llama_timings)
+def llama_get_timings(ctx: int) -> llama_timings: ...
 
 
-@_cfunc("llama_perf_context_reset", [ctypes.c_void_p], None)
-def llama_perf_context_reset(ctx: int) -> None: ...
+@_cfunc("llama_print_timings", [ctypes.c_void_p], None)
+def llama_print_timings(ctx: int) -> None: ...
+
+
+@_cfunc("llama_reset_timings", [ctypes.c_void_p], None)
+def llama_reset_timings(ctx: int) -> None: ...

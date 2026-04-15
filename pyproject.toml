@@ -13,7 +13,6 @@ dependencies = ["numpy>=1.24"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: C++",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]

@@ -10,7 +10,7 @@ add_subdirectory(vendor/ik_llama.cpp)
 
 # Install shared libraries into the Python package
 install(
-    TARGETS llama ggml ggml-base ggml-cpu
+    TARGETS llama ggml
     LIBRARY DESTINATION ik_llama_cpp/lib
     RUNTIME DESTINATION ik_llama_cpp/lib
 )

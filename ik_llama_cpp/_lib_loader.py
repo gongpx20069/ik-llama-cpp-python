@@ -34,15 +34,23 @@ def load_shared_library() -> ctypes.CDLL:
             return _load(p)
         raise FileNotFoundError(f"IK_LLAMA_CPP_LIB_PATH points to missing file: {p}")
 
-    # 2. Package lib/ directory
-    lib_dir = Path(__file__).parent / "lib"
-    for name in _lib_names():
-        candidate = lib_dir / name
-        if candidate.exists():
-            return _load(candidate)
+    # 2. Package lib/ directory (source tree or site-packages)
+    search_dirs = [Path(__file__).parent / "lib"]
+
+    # Also check site-packages (editable installs put DLLs there)
+    for sp in sys.path:
+        sp_lib = Path(sp) / "ik_llama_cpp" / "lib"
+        if sp_lib != search_dirs[0] and sp_lib.is_dir():
+            search_dirs.append(sp_lib)
+
+    for lib_dir in search_dirs:
+        for name in _lib_names():
+            candidate = lib_dir / name
+            if candidate.exists():
+                return _load(candidate)
 
     raise FileNotFoundError(
-        f"Cannot find ik_llama shared library. Searched: {lib_dir}. "
+        f"Cannot find ik_llama shared library. Searched: {search_dirs}. "
         "Set IK_LLAMA_CPP_LIB_PATH or rebuild with: pip install -e ."
     )
 

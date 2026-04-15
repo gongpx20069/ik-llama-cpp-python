@@ -61,7 +61,7 @@ class IkModel:
 
     def close(self):
         if self._model:
-            C.llama_model_free(self._model)
+            C.llama_free_model(self._model)
             self._model = None
 
     def __del__(self):
@@ -79,8 +79,7 @@ class IkContext:
         if n_threads > 0:
             params.n_threads = n_threads
             params.n_threads_batch = n_threads
-        if flash_attn:
-            params.flash_attn_type = 2  # LLAMA_FLASH_ATTN_TYPE_ENABLED
+        params.flash_attn = flash_attn
 
         self._ctx = C.llama_init_from_model(model.model, params)
         if not self._ctx:
@@ -102,7 +101,7 @@ class IkContext:
         return C.llama_get_logits_ith(self._ctx, idx)
 
     def perf(self) -> dict:
-        data = C.llama_perf_context(self._ctx)
+        data = C.llama_get_timings(self._ctx)
         return {
             "t_p_eval_ms": data.t_p_eval_ms,
             "t_eval_ms": data.t_eval_ms,
@@ -111,39 +110,41 @@ class IkContext:
         }
 
     def perf_reset(self):
-        C.llama_perf_context_reset(self._ctx)
+        C.llama_reset_timings(self._ctx)
+
+    def sample(self, idx: int, *, temperature: float = 0.0,
+               top_k: int = 40, top_p: float = 0.95) -> int:
+        """Sample a token from logits at position idx using direct sampling."""
+        n_vocab = self._model.n_vocab
+        logits = C.llama_get_logits_ith(self._ctx, idx)
+
+        # Build candidate array
+        candidates_data = (C.llama_token_data * n_vocab)()
+        for i in range(n_vocab):
+            candidates_data[i].id = i
+            candidates_data[i].logit = logits[i]
+            candidates_data[i].p = 0.0
+
+        candidates = C.llama_token_data_array()
+        candidates.data = candidates_data
+        candidates.size = n_vocab
+        candidates.selected = -1
+        candidates.sorted = False
+
+        candidates_p = ctypes.pointer(candidates)
+
+        if temperature <= 0:
+            return C.llama_sample_token_greedy(self._ctx, candidates_p)
+        else:
+            C.llama_sample_top_k(self._ctx, candidates_p, top_k, 1)
+            C.llama_sample_top_p(self._ctx, candidates_p, top_p, 1)
+            C.llama_sample_temp(self._ctx, candidates_p, temperature)
+            return C.llama_sample_token(self._ctx, candidates_p)
 
     def close(self):
         if self._ctx:
             C.llama_free(self._ctx)
             self._ctx = None
-
-    def __del__(self):
-        self.close()
-
-
-class IkSampler:
-    """Wraps a sampler chain with automatic cleanup."""
-
-    def __init__(self, *, temperature: float = 0.0, top_k: int = 40,
-                 top_p: float = 0.95):
-        params = C.llama_sampler_chain_default_params()
-        self._chain = C.llama_sampler_chain_init(params)
-
-        if temperature <= 0:
-            C.llama_sampler_chain_add(self._chain, C.llama_sampler_init_greedy())
-        else:
-            C.llama_sampler_chain_add(self._chain, C.llama_sampler_init_top_k(top_k))
-            C.llama_sampler_chain_add(self._chain, C.llama_sampler_init_top_p(top_p, 1))
-            C.llama_sampler_chain_add(self._chain, C.llama_sampler_init_temp(temperature))
-
-    def sample(self, ctx: IkContext, idx: int = -1) -> int:
-        return C.llama_sampler_sample(self._chain, ctx.ctx, idx)
-
-    def close(self):
-        if self._chain:
-            C.llama_sampler_free(self._chain)
-            self._chain = None
 
     def __del__(self):
         self.close()

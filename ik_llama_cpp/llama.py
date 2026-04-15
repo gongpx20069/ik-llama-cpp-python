@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import ctypes
-import time
-from typing import Any, Optional
+from typing import Any
 
 from . import _ctypes_api as C
-from ._internals import IkModel, IkContext, IkSampler, make_batch, make_batch_single
+from ._internals import IkModel, IkContext, make_batch, make_batch_single
 
 
 class IkLlama:
@@ -80,15 +78,13 @@ class IkLlama:
         if ret != 0:
             raise RuntimeError(f"llama_decode failed during prefill: {ret}")
 
-        # Sampler
-        sampler = IkSampler(temperature=temperature, top_k=top_k, top_p=top_p)
-
         generated: list[int] = []
-        n_vocab = self._model.n_vocab
         pos = len(tokens)
 
         for _ in range(max_tokens):
-            token_id = sampler.sample(self._context, -1)
+            token_id = self._context.sample(
+                -1, temperature=temperature, top_k=top_k, top_p=top_p,
+            )
 
             # EOS check (token id 1 and 106 for Gemma)
             if token_id == 1 or token_id == 106:
@@ -104,7 +100,6 @@ class IkLlama:
                 break
             pos += 1
 
-        sampler.close()
         return generated
 
     def create_chat_completion(
