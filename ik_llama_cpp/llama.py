@@ -65,15 +65,15 @@ class IkLlama:
             n_gpu_layers=n_gpu_layers,
         )
 
-        # Detect IQ4_KT + non-VNNI CPU — flash_attn triggers
-        # GGML_ASSERT(S > 0) in iqk flash attention templates
+        # Detect non-VNNI CPU — ik_llama.cpp flash attention
+        # (iqk_fa_templates.h) triggers GGML_ASSERT(S > 0) on longer
+        # prompts without AVX-VNNI, regardless of quant type.
         self._has_vnni = _cpu_has_avx_vnni()
-        is_iq4kt = "IQ4_KT" in self._model.desc.upper()
-        if flash_attn and is_iq4kt and not self._has_vnni:
+        if flash_attn and not self._has_vnni:
             logger.warning(
-                "IQ4_KT model on non-AVX-VNNI CPU — disabling flash_attn "
-                "to avoid ik_llama.cpp flash attention assert failures. "
-                "For full IQ4_KT performance, use a Zen 4+ or Alder Lake+ CPU."
+                "AVX-VNNI not detected — disabling flash_attn to avoid "
+                "ik_llama.cpp flash attention assert failures on longer prompts. "
+                "For full ik_llama.cpp performance, use a Zen 4+ or Alder Lake+ CPU."
             )
             flash_attn = False
 
