@@ -223,6 +223,10 @@ ik_llama_cpp/
   bin/               # llama-quantize binary (installed by CMake)
 ```
 
+## Contributing
+
+Contributions are welcome! Feel free to open an issue or submit a pull request on [GitHub](https://github.com/gongpx20069/ik-llama-cpp-python). Whether it's bug reports, feature requests, documentation improvements, or code contributions — all are appreciated.
+
 ## License
 
 MIT
