@@ -342,6 +342,12 @@ def llama_batch_free(batch: llama_batch) -> None: ...
 def llama_decode(ctx: int, batch: llama_batch) -> int: ...
 
 
+# -- KV cache --
+
+@_cfunc("llama_kv_cache_clear", [ctypes.c_void_p], None)
+def llama_kv_cache_clear(ctx: int) -> None: ...
+
+
 # -- Logits --
 
 @_cfunc("llama_get_logits_ith", [ctypes.c_void_p, ctypes.c_int32], ctypes.POINTER(ctypes.c_float))

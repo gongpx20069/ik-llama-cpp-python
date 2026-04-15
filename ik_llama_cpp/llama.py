@@ -105,6 +105,7 @@ class IkLlama:
         top_p: float = 0.95,
     ) -> list[int]:
         """Generate tokens from a prompt token list. Returns generated token ids."""
+        self._context.kv_cache_clear()
         self._context.perf_reset()
 
         n_ubatch = self._context._n_ubatch

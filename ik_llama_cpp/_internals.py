@@ -105,6 +105,9 @@ class IkContext:
     def decode(self, batch: C.llama_batch) -> int:
         return C.llama_decode(self._ctx, batch)
 
+    def kv_cache_clear(self):
+        C.llama_kv_cache_clear(self._ctx)
+
     def get_logits(self, idx: int = -1):
         return C.llama_get_logits_ith(self._ctx, idx)
 
