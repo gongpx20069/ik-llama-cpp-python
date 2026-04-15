@@ -28,7 +28,7 @@ jobs:
             arch: aarch64
             runner: ubuntu-24.04-arm
             cibw_archs: aarch64
-            cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON"
+            cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_IQK_MUL_MAT=OFF"
           - os: macos
             arch: arm64
             runner: macos-14
@@ -73,7 +73,7 @@ jobs:
           CIBW_ENVIRONMENT_WINDOWS: >-
             CMAKE_BUILD_PARALLEL_LEVEL=4
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
-            bash -c "TMP=$(mktemp -d) && unzip -q {wheel} -d $TMP && LD_LIBRARY_PATH=$TMP/ik_llama_cpp/lib:$LD_LIBRARY_PATH auditwheel repair -w {dest_dir} {wheel} && rm -rf $TMP"
+            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel} && rm -rf "$TMPWHL"'
           # Skip delocate on macOS — libs are already bundled correctly by CMake
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
             cp {wheel} {dest_dir}/
@@ -119,7 +119,7 @@ jobs:
           CIBW_CONFIG_SETTINGS: >-
             cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_CUDA=ON;-DGGML_AVX2=ON;-DGGML_FMA=ON;-DGGML_F16C=ON
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
-            bash -c "TMP=$(mktemp -d) && unzip -q {wheel} -d $TMP && LD_LIBRARY_PATH=$TMP/ik_llama_cpp/lib:$LD_LIBRARY_PATH auditwheel repair -w {dest_dir} {wheel} --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf $TMP"
+            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel} --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL"'
 
       - uses: actions/upload-artifact@v4
         with:
