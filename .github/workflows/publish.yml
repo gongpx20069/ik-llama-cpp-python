@@ -24,11 +24,14 @@ jobs:
             runner: ubuntu-latest
             cibw_archs: x86_64
             cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_AVX2=ON;-DGGML_FMA=ON;-DGGML_F16C=ON"
+            cxxflags: "-include cstdint"
           - os: linux
             arch: aarch64
             runner: ubuntu-24.04-arm
             cibw_archs: aarch64
             cmake_args: "-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_IQK_MUL_MAT=OFF"
+            cxxflags: "-include cstdint -march=armv8.2-a+dotprod+fp16"
+            cflags: "-march=armv8.2-a+dotprod+fp16"
           - os: macos
             arch: arm64
             runner: macos-14
@@ -66,7 +69,8 @@ jobs:
             PATH=/opt/rh/gcc-toolset-13/root/usr/bin:$PATH
             LD_LIBRARY_PATH=/opt/rh/gcc-toolset-13/root/usr/lib64:/opt/rh/gcc-toolset-13/root/usr/lib:$LD_LIBRARY_PATH
             CMAKE_BUILD_PARALLEL_LEVEL=4
-            CXXFLAGS="-include cstdint"
+            CXXFLAGS="${{ matrix.cxxflags || '-include cstdint' }}"
+            CFLAGS="${{ matrix.cflags || '' }}"
           CIBW_ENVIRONMENT_MACOS: >-
             CMAKE_BUILD_PARALLEL_LEVEL=4
             MACOSX_DEPLOYMENT_TARGET=11.0
