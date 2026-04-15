@@ -344,6 +344,12 @@ def llama_decode(ctx: int, batch: llama_batch) -> int: ...
 def llama_get_logits_ith(ctx: int, i: int) -> Any: ...
 
 
+# -- EOG detection --
+
+@_cfunc("llama_token_is_eog", [ctypes.c_void_p, llama_token], ctypes.c_bool)
+def llama_token_is_eog(model: int, token: int) -> bool: ...
+
+
 # -- Direct sampling (ik_llama.cpp style — no sampler chain) --
 
 @_cfunc(

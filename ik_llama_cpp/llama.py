@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from . import _ctypes_api as C
 from ._internals import IkModel, IkContext, make_batch, make_batch_single
+
+# Special token markers that may leak into generated text
+_SPECIAL_TOKEN_RE = re.compile(
+    r"<start_of_turn>|<end_of_turn>|<turn\|>|<\|tool_response\|?>|</s>"
+)
 
 
 class IkLlama:
@@ -50,11 +56,11 @@ class IkLlama:
 
     @property
     def ctx(self):
-        """Raw context pointer — for llama_perf_context() access."""
+        """Raw context pointer — for perf timing access."""
         return self._context.ctx
 
-    def tokenize(self, text: str, *, add_bos: bool = True) -> list[int]:
-        return self._model.tokenize(text, add_bos=add_bos)
+    def tokenize(self, text: str, *, add_bos: bool = True, special: bool = False) -> list[int]:
+        return self._model.tokenize(text, add_bos=add_bos, special=special)
 
     def detokenize(self, tokens: list[int]) -> str:
         return self._model.detokenize(tokens)
@@ -86,8 +92,8 @@ class IkLlama:
                 -1, temperature=temperature, top_k=top_k, top_p=top_p,
             )
 
-            # EOS check (token id 1 and 106 for Gemma)
-            if token_id == 1 or token_id == 106:
+            # EOG check using the model's own EOG token list
+            if C.llama_token_is_eog(self._model.model, token_id):
                 break
 
             generated.append(token_id)
@@ -113,10 +119,11 @@ class IkLlama:
     ) -> dict[str, Any]:
         """OpenAI-compatible chat completion.
 
-        Returns a dict matching the OpenAI ``ChatCompletion`` schema.
+        Returns a dict matching the ``llama_cpp.Llama.create_chat_completion``
+        schema: choices[0].message.content, usage.prompt_tokens, etc.
         """
         prompt = self._apply_chat_template(messages)
-        tokens = self.tokenize(prompt, add_bos=False)
+        tokens = self.tokenize(prompt, add_bos=False, special=True)
         prompt_tokens = len(tokens)
 
         gen_ids = self.generate(
@@ -125,6 +132,8 @@ class IkLlama:
         )
 
         text = self.detokenize(gen_ids)
+        # Strip special token markers that leak through sub-token generation
+        text = _SPECIAL_TOKEN_RE.sub("", text).strip()
         completion_tokens = len(gen_ids)
 
         return {
@@ -146,37 +155,12 @@ class IkLlama:
 
     def chat(self, prompt: str, *, temperature: float = 0.3,
              max_tokens: int = 256) -> str:
-        """Convenience: single user message → response text."""
+        """Convenience: single user message -> response text."""
         resp = self.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature, max_tokens=max_tokens,
         )
         return resp["choices"][0]["message"]["content"]
-
-    def chat_with_stats(self, prompt: str, *, temperature: float = 0.3,
-                        max_tokens: int = 256) -> tuple[str, dict]:
-        """Like :meth:`chat` but also returns perf stats.
-
-        Returns ``(text, stats)`` where *stats* contains:
-        ``prompt_tokens``, ``eval_tokens``, ``prompt_tps``, ``eval_tps``.
-        """
-        self._context.perf_reset()
-
-        text = self.chat(prompt, temperature=temperature, max_tokens=max_tokens)
-
-        perf = self._context.perf()
-        prompt_tokens = perf["n_p_eval"]
-        eval_tokens = perf["n_eval"]
-        t_p_eval = perf["t_p_eval_ms"]
-        t_eval = perf["t_eval_ms"]
-
-        stats = {
-            "prompt_tokens": prompt_tokens,
-            "eval_tokens": eval_tokens,
-            "prompt_tps": round(prompt_tokens / (t_p_eval / 1000), 2) if t_p_eval > 0 else 0.0,
-            "eval_tps": round(eval_tokens / (t_eval / 1000), 2) if t_eval > 0 else 0.0,
-        }
-        return text, stats
 
     def close(self):
         if self._context:

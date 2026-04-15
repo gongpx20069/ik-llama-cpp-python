@@ -160,8 +160,8 @@ def make_batch(tokens: list[int], *, logits_last: bool = True) -> C.llama_batch:
         batch.token[i] = tok
         batch.pos[i] = i
         batch.n_seq_id[i] = 1
-        seq_id_ptr = (C.llama_seq_id * 1)(0)
-        batch.seq_id[i] = ctypes.cast(seq_id_ptr, ctypes.POINTER(C.llama_seq_id))
+        # llama_batch_init already allocated seq_id[i] — write into it directly
+        batch.seq_id[i][0] = 0
         batch.logits[i] = 1 if (logits_last and i == n - 1) else 0
 
     return batch
@@ -174,7 +174,6 @@ def make_batch_single(token: int, pos: int) -> C.llama_batch:
     batch.token[0] = token
     batch.pos[0] = pos
     batch.n_seq_id[0] = 1
-    seq_id_ptr = (C.llama_seq_id * 1)(0)
-    batch.seq_id[0] = ctypes.cast(seq_id_ptr, ctypes.POINTER(C.llama_seq_id))
+    batch.seq_id[0][0] = 0
     batch.logits[0] = 1
     return batch
