@@ -7,7 +7,7 @@ Python bindings for [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) â€
 ### From source (requires CMake and a C++ compiler)
 
 ```bash
-git clone https://github.com/peixiangong/ik-llama-cpp-python
+git clone https://github.com/gongpx20069/ik-llama-cpp-python
 cd ik-llama-cpp-python
 
 # Pull ik_llama.cpp source

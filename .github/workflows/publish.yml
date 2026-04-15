@@ -1,0 +1,186 @@
+name: Build and Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ===== Build CPU wheels =====
+  build-wheels:
+    name: Build wheels (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-latest
+            cibw_archs: x86_64
+          - os: linux
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+            cibw_archs: aarch64
+          - os: macos
+            arch: x86_64
+            runner: macos-13
+            cibw_archs: x86_64
+          - os: macos
+            arch: arm64
+            runner: macos-14
+            cibw_archs: arm64
+          - os: windows
+            arch: x86_64
+            runner: windows-latest
+            cibw_archs: AMD64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_METAL_EMBED_LIBRARY=ON
+          CIBW_ENVIRONMENT_LINUX: >-
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+            MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
+            auditwheel repair -w {dest_dir} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cpu-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./wheelhouse/*.whl
+
+  # ===== Build CUDA wheels (Linux x86_64 only) =====
+  build-cuda-wheels:
+    name: Build CUDA wheels (Linux x86_64)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build CUDA wheels
+        uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_ARCHS: x86_64
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL_LINUX: >-
+            dnf install -y epel-release &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
+            dnf install -y cuda-toolkit-12-4 &&
+            ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+          CIBW_ENVIRONMENT_LINUX: >-
+            PATH=/usr/local/cuda/bin:$PATH
+            LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+          CIBW_BEFORE_BUILD: >-
+            sed -i 's/name = "ik-llama-cpp-python"/name = "ik-llama-cpp-python-cuda"/' pyproject.toml
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_CUDA=ON
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
+            auditwheel repair -w {dest_dir} {wheel} --exclude libcuda.so.1 --exclude libnvidia-ml.so.1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cuda
+          path: ./wheelhouse/*.whl
+
+  # ===== Build source distribution =====
+  build-sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # ===== Publish CPU wheels + sdist to PyPI =====
+  publish:
+    name: Publish to PyPI
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-cpu-*
+          path: dist/
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ===== Publish CUDA wheels to PyPI =====
+  publish-cuda:
+    name: Publish CUDA wheels to PyPI
+    needs: [build-cuda-wheels]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-cuda
+          path: dist/
+
+      - name: Publish CUDA wheels to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

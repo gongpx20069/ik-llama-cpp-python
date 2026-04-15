@@ -18,13 +18,13 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/peixiangong/ik-llama-cpp-python"
-Repository = "https://github.com/peixiangong/ik-llama-cpp-python"
+Homepage = "https://github.com/gongpx20069/ik-llama-cpp-python"
+Repository = "https://github.com/gongpx20069/ik-llama-cpp-python"
 
 [tool.scikit-build]
 wheel.packages = ["ik_llama_cpp"]
 cmake.build-type = "Release"
-cmake.args = ["-DGGML_NATIVE=ON", "-DBUILD_SHARED_LIBS=ON"]
+cmake.args = ["-DBUILD_SHARED_LIBS=ON"]
 
 [tool.scikit-build.cmake.define]
 LLAMA_BUILD_TESTS = "OFF"
