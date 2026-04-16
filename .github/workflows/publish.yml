@@ -125,7 +125,7 @@ jobs:
           CIBW_CONFIG_SETTINGS: >-
             cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_CUDA=ON;-DGGML_AVX2=ON;-DGGML_FMA=ON;-DGGML_F16C=ON;-DCMAKE_CUDA_ARCHITECTURES=89-real
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
-            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel} --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL"'
+            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && find "$TMPWHL" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null; cd "$TMPWHL" && zip -r -q /tmp/stripped.whl . && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} /tmp/stripped.whl --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL" /tmp/stripped.whl'
 
       - uses: actions/upload-artifact@v4
         with:
