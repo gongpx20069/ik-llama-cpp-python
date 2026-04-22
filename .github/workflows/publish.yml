@@ -125,7 +125,7 @@ jobs:
           CIBW_CONFIG_SETTINGS: >-
             cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_CUDA=ON;-DGGML_AVX2=ON;-DGGML_FMA=ON;-DGGML_F16C=ON;-DCMAKE_CUDA_ARCHITECTURES=89-real
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
-            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && find "$TMPWHL" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null; pip install wheel && wheel pack "$TMPWHL" -d /tmp/stripped && STRIPPED=$(ls /tmp/stripped/*.whl) && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} "$STRIPPED" --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL" /tmp/stripped'
+            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && find "$TMPWHL" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null; STRIPPED=/tmp/stripped_wheel.whl && (cd "$TMPWHL" && python -c "import zipfile,os,sys;z=zipfile.ZipFile(sys.argv[1],chr(119),zipfile.ZIP_DEFLATED);[z.write(os.path.join(r,f),os.path.relpath(os.path.join(r,f),chr(46))) for r,d,fs in os.walk(chr(46)) for f in fs];z.close()" "$STRIPPED") && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} "$STRIPPED" --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL" "$STRIPPED"'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -182,15 +182,14 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # ===== Publish CUDA wheels to PyPI =====
+  # ===== Upload CUDA wheels to GitHub Release =====
   publish-cuda:
-    name: Publish CUDA wheels to PyPI
+    name: Upload CUDA wheels to GitHub Release
     needs: [build-cuda-wheels]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    environment: pypi-cuda
     permissions:
-      id-token: write
+      contents: write
 
     steps:
       - uses: actions/download-artifact@v4
@@ -198,5 +197,11 @@ jobs:
           name: wheels-cuda
           path: dist/
 
-      - name: Publish CUDA wheels to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload CUDA wheels to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for whl in dist/*.whl; do
+            echo "Uploading $whl ..."
+            gh release upload "${{ github.event.release.tag_name }}" "$whl" --repo "${{ github.repository }}" --clobber
+          done

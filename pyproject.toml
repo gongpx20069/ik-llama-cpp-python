@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ik-llama-cpp-python"
-version = "0.1.2"
+version = "0.1.3"
 description = "Python bindings for ik_llama.cpp — high-performance llama.cpp fork"
 readme = "README.md"
 license = "MIT"
