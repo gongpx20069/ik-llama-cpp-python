@@ -19,6 +19,7 @@ classifiers = [
 
 [project.optional-dependencies]
 quantize = ["huggingface_hub>=0.20"]
+test = ["pytest>=7.0"]
 
 [project.scripts]
 ik-llama-quantize = "ik_llama_cpp.quantize:main"
