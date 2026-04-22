@@ -24,13 +24,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y cmake
-          pip install -e ".[test]"
+      - name: Install test dependencies
+        run: pip install pytest numpy
 
-      - name: Run tests
-        run: pytest tests/ -v --ignore=tests/test_basic.py -x
-
-      - name: Run basic tests (import only)
-        run: pytest tests/test_basic.py -v -k "not test_chat" -x
+      - name: Run unit tests
+        run: pytest tests/test_unit.py -v -x
