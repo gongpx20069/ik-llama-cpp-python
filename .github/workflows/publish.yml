@@ -125,7 +125,7 @@ jobs:
           CIBW_CONFIG_SETTINGS: >-
             cmake.args=-DGGML_NATIVE=OFF;-DBUILD_SHARED_LIBS=ON;-DGGML_CUDA=ON;-DGGML_AVX2=ON;-DGGML_FMA=ON;-DGGML_F16C=ON;-DCMAKE_CUDA_ARCHITECTURES=89-real
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
-            bash -c 'TMPWHL=$(mktemp -d) && unzip -q {wheel} -d "$TMPWHL" && find "$TMPWHL" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null; STRIPPED=/tmp/stripped_wheel.whl && (cd "$TMPWHL" && python -c "import zipfile,os,sys;z=zipfile.ZipFile(sys.argv[1],chr(119),zipfile.ZIP_DEFLATED);[z.write(os.path.join(r,f),os.path.relpath(os.path.join(r,f),chr(46))) for r,d,fs in os.walk(chr(46)) for f in fs];z.close()" "$STRIPPED") && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} "$STRIPPED" --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL" "$STRIPPED"'
+            bash -c 'TMPWHL=$(mktemp -d) && WHLNAME=$(basename {wheel}) && unzip -q {wheel} -d "$TMPWHL" && find "$TMPWHL" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null; STRIPPED=/tmp/$WHLNAME && (cd "$TMPWHL" && python -c "import zipfile,os,sys;z=zipfile.ZipFile(sys.argv[1],chr(119),zipfile.ZIP_DEFLATED);[z.write(os.path.join(r,f),os.path.relpath(os.path.join(r,f),chr(46))) for r,d,fs in os.walk(chr(46)) for f in fs];z.close()" "$STRIPPED") && LD_LIBRARY_PATH="$TMPWHL/ik_llama_cpp/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} "$STRIPPED" --exclude libcuda.so.1 --exclude libnvidia-ml.so.1 && rm -rf "$TMPWHL" "$STRIPPED"'
 
       - uses: actions/upload-artifact@v4
         with:
