@@ -18,9 +18,14 @@ pip install ik-llama-cpp-python
 
 ### Pre-built wheels (CUDA)
 
+CUDA wheels are distributed via GitHub Releases (too large for PyPI). Install by downloading from the [latest release](https://github.com/gongpx20069/ik-llama-cpp-python/releases):
+
 ```bash
-pip install ik-llama-cpp-python-cuda
+# Replace the URL with the wheel matching your Python version
+pip install https://github.com/gongpx20069/ik-llama-cpp-python/releases/download/v0.1.3/ik_llama_cpp_python_cuda-0.1.3-cp312-cp312-manylinux_2_28_x86_64.whl
 ```
+
+Available for Python 3.10–3.13, Linux x86_64, CUDA 12.4.
 
 <details>
 <summary><strong>From source (requires CMake ≥ 3.21 and a C++20 compiler)</strong></summary>
@@ -186,7 +191,7 @@ ik-llama-quantize check
 
 | Platform | Wheels | Notes |
 |----------|--------|-------|
-| Linux x86_64 | CPU (AVX2), CUDA 12.4 | Python 3.10–3.13 |
+| Linux x86_64 | CPU (AVX2), CUDA 12.4 | CUDA wheels via [GitHub Releases](https://github.com/gongpx20069/ik-llama-cpp-python/releases) |
 | Linux aarch64 | CPU | Python 3.10–3.13 |
 | macOS arm64 | CPU + Metal | Python 3.10–3.13 |
 | Windows x86_64 | CPU (AVX2) | Python 3.10–3.13 |
