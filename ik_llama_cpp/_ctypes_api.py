@@ -51,6 +51,16 @@ llama_token_p = ctypes.POINTER(llama_token)
 llama_pos = ctypes.c_int32
 llama_seq_id = ctypes.c_int32
 
+LLAMA_POOLING_TYPE_UNSPECIFIED = -1
+LLAMA_POOLING_TYPE_NONE = 0
+LLAMA_POOLING_TYPE_MEAN = 1
+LLAMA_POOLING_TYPE_CLS = 2
+LLAMA_POOLING_TYPE_LAST = 3
+
+LLAMA_ATTENTION_TYPE_UNSPECIFIED = -1
+LLAMA_ATTENTION_TYPE_CAUSAL = 0
+LLAMA_ATTENTION_TYPE_NON_CAUSAL = 1
+
 # Callback types
 llama_progress_callback = ctypes.CFUNCTYPE(
     ctypes.c_bool, ctypes.c_float, ctypes.c_void_p
@@ -279,6 +289,10 @@ def llama_free_model(model: int) -> None: ...
 def llama_model_desc(model: int, buf: Any, buf_size: int) -> int: ...
 
 
+@_cfunc("llama_model_n_embd", [ctypes.c_void_p], ctypes.c_int32)
+def llama_model_n_embd(model: int) -> int: ...
+
+
 # -- Context init / free --
 
 @_cfunc("llama_init_from_model", [ctypes.c_void_p, llama_context_params], ctypes.c_void_p)
@@ -346,6 +360,20 @@ def llama_decode(ctx: int, batch: llama_batch) -> int: ...
 
 @_cfunc("llama_kv_cache_clear", [ctypes.c_void_p], None)
 def llama_kv_cache_clear(ctx: int) -> None: ...
+
+
+# -- Embeddings --
+
+@_cfunc("llama_set_embeddings", [ctypes.c_void_p, ctypes.c_bool], None)
+def llama_set_embeddings(ctx: int, embeddings: bool) -> None: ...
+
+
+@_cfunc("llama_set_causal_attn", [ctypes.c_void_p, ctypes.c_bool], None)
+def llama_set_causal_attn(ctx: int, causal_attn: bool) -> None: ...
+
+
+@_cfunc("llama_get_embeddings_seq", [ctypes.c_void_p, llama_seq_id], ctypes.POINTER(ctypes.c_float))
+def llama_get_embeddings_seq(ctx: int, seq_id: int) -> Any: ...
 
 
 # -- Logits --

@@ -79,13 +79,22 @@ class IkContext:
     """Wraps a llama_context pointer with automatic cleanup."""
 
     def __init__(self, model: IkModel, *, n_ctx: int = 4096, n_threads: int = 0,
-                 flash_attn: bool = True):
+                 flash_attn: bool = True, embeddings: bool = False,
+                 pooling_type: int = C.LLAMA_POOLING_TYPE_UNSPECIFIED,
+                 attention_type: int = C.LLAMA_ATTENTION_TYPE_UNSPECIFIED,
+                 n_seq_max: int = 1):
         params = C.llama_context_default_params()
         params.n_ctx = n_ctx
         params.n_batch = n_ctx
+        params.n_seq_max = n_seq_max
+        if embeddings:
+            params.n_ubatch = n_ctx
         if n_threads > 0:
             params.n_threads = n_threads
             params.n_threads_batch = n_threads
+        params.embeddings = embeddings
+        params.pooling_type = pooling_type
+        params.attention_type = attention_type
         params.flash_attn = flash_attn
 
         self._ctx = C.llama_init_from_model(model.model, params)
@@ -107,6 +116,13 @@ class IkContext:
 
     def kv_cache_clear(self):
         C.llama_kv_cache_clear(self._ctx)
+
+    def get_embeddings_seq(self, seq_id: int) -> list[float]:
+        values = C.llama_get_embeddings_seq(self._ctx, seq_id)
+        if not values:
+            raise RuntimeError(f"No pooled embedding returned for sequence {seq_id}")
+        n_embd = C.llama_model_n_embd(self._model.model)
+        return list(values[:n_embd])
 
     def get_logits(self, idx: int = -1):
         return C.llama_get_logits_ith(self._ctx, idx)
@@ -192,4 +208,27 @@ def make_batch_single(token: int, pos: int) -> C.llama_batch:
     batch.n_seq_id[0] = 1
     batch.seq_id[0][0] = 0
     batch.logits[0] = 1
+    return batch
+
+
+def make_embedding_batch(token_sequences: list[list[int]]) -> C.llama_batch:
+    """Create a batch of independent sequences for pooled embeddings."""
+    if not token_sequences:
+        raise ValueError("token_sequences must not be empty")
+
+    n_tokens = sum(len(tokens) for tokens in token_sequences)
+    batch = C.llama_batch_init(n_tokens, 0, len(token_sequences))
+    batch.n_tokens = n_tokens
+
+    offset = 0
+    for seq_id, tokens in enumerate(token_sequences):
+        for position, token in enumerate(tokens):
+            index = offset + position
+            batch.token[index] = token
+            batch.pos[index] = position
+            batch.n_seq_id[index] = 1
+            batch.seq_id[index][0] = seq_id
+            batch.logits[index] = 1
+        offset += len(tokens)
+
     return batch

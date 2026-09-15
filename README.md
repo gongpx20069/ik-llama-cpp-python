@@ -104,6 +104,32 @@ output_ids = llm.generate(tokens, max_tokens=128, temperature=0.7)
 text = llm.detokenize(output_ids)
 ```
 
+### `create_embedding` — Batched embeddings
+
+Dedicated embedding models use a non-causal, mean-pooled context. The Python
+binding batches independent sequences directly through the C API and clears
+the KV cache between calls, avoiding state leakage from long-lived servers.
+
+```python
+embedder = IkLlama(
+    "pplx-embed-v1-0.6b-q8_0.gguf",
+    n_ctx=4096,
+    n_threads=16,
+    embedding=True,
+)
+
+response = embedder.create_embedding([
+    "first document",
+    "第二个文档",
+])
+vectors = [item["embedding"] for item in response["data"]]
+```
+
+`embedding=True` automatically selects non-causal attention, mean pooling,
+and disables Flash Attention because ik_llama.cpp's IQK Flash Attention path
+does not support every non-causal batch shape. `embed(..., normalize=False)`
+returns raw pooled vectors when model-specific output quantization is needed.
+
 ### Drop-in replacement for llama-cpp-python
 
 ```python
@@ -186,6 +212,8 @@ ik-llama-quantize check
 | `flash_attn` | `bool` | `True` | Enable flash attention |
 | `n_gpu_layers` | `int` | `0` | Number of layers to offload to GPU |
 | `verbose` | `bool` | `True` | Logging verbosity |
+| `embedding` | `bool` | `False` | Enable non-causal mean-pooled embedding mode |
+| `n_seq_max` | `int` | `32` | Maximum independent sequences per embedding batch |
 
 ## Supported Platforms
 
