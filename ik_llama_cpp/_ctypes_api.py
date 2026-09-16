@@ -303,6 +303,10 @@ def llama_init_from_model(model: int, params: llama_context_params) -> Optional[
 def llama_free(ctx: int) -> None: ...
 
 
+@_cfunc("llama_n_ubatch", [ctypes.c_void_p], ctypes.c_uint32)
+def llama_n_ubatch(ctx: int) -> int: ...
+
+
 # -- Vocab --
 
 @_cfunc("llama_model_get_vocab", [ctypes.c_void_p], ctypes.c_void_p)

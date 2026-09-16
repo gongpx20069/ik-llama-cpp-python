@@ -101,7 +101,7 @@ class IkContext:
         if not self._ctx:
             raise RuntimeError("Failed to create context")
         self._model = model
-        self._n_ubatch = params.n_ubatch or 512
+        self._n_ubatch = C.llama_n_ubatch(self._ctx)
 
     @property
     def ctx(self):

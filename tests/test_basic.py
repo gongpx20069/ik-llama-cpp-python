@@ -10,7 +10,7 @@ def test_import():
 
 def test_version():
     from ik_llama_cpp import __version__
-    assert __version__ == "0.1.4"
+    assert __version__ == "0.1.5"
 
 
 @pytest.mark.skipif(

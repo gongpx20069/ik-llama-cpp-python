@@ -29,7 +29,7 @@ def _make_mock_modules():
         "llama_kv_cache_clear", "llama_token_is_eog",
         "llama_get_timings", "llama_print_timings", "llama_reset_timings",
         "llama_model_default_params", "llama_context_default_params",
-        "llama_model_desc", "llama_n_ctx",
+        "llama_model_desc", "llama_n_ctx", "llama_n_ubatch",
         "llama_model_n_embd", "llama_get_embeddings_seq",
         "llama_set_embeddings", "llama_set_causal_attn",
     ]:
@@ -63,7 +63,7 @@ def test_import():
 
 def test_version():
     from ik_llama_cpp import __version__
-    assert __version__ == "0.1.4"
+    assert __version__ == "0.1.5"
 
 
 def test_chat_template_single_user():
@@ -132,6 +132,7 @@ def test_embed_batches_and_clears_kv_cache():
     llm._n_seq_max = 2
     llm.tokenize = lambda text, **_: list(range(len(text)))
     llm._context = mock.MagicMock()
+    llm._context._n_ubatch = 5
     llm._context.decode.return_value = 0
     llm._context.get_embeddings_seq.side_effect = [
         [3.0, 4.0],
@@ -157,6 +158,29 @@ def test_embed_batches_and_clears_kv_cache():
     assert _mock_ctypes_api.llama_batch_free.call_args_list[-2:] == [
         mock.call("batch-1"),
         mock.call("batch-2"),
+    ]
+
+
+def test_embed_splits_batches_at_native_ubatch_limit():
+    llm = IkLlama.__new__(IkLlama)
+    llm._embedding = True
+    llm._n_ctx = 10
+    llm._n_seq_max = 10
+    llm.tokenize = lambda text, **_: list(range(len(text)))
+    llm._context = mock.MagicMock()
+    llm._context._n_ubatch = 4
+    llm._context.decode.return_value = 0
+    llm._context.get_embeddings_seq.side_effect = [[1.0], [2.0]]
+
+    with mock.patch(
+        "ik_llama_cpp.llama.make_embedding_batch", side_effect=["batch-1", "batch-2"]
+    ) as make_batch:
+        result = llm.embed(["abc", "def"], normalize=False)
+
+    assert result == [[1.0], [2.0]]
+    assert make_batch.call_args_list == [
+        mock.call([[0, 1, 2]]),
+        mock.call([[0, 1, 2]]),
     ]
 
 

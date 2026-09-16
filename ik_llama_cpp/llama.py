@@ -218,7 +218,7 @@ class IkLlama:
                 tokens = token_sequences[start + len(group)]
                 if group and (
                     len(group) >= self._n_seq_max
-                    or group_tokens + len(tokens) > self._n_ctx
+                    or group_tokens + len(tokens) > self._context._n_ubatch
                 ):
                     break
                 group.append(tokens)
